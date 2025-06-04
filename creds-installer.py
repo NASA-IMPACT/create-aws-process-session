@@ -16,8 +16,8 @@ def create_temp_creds_script():
     if not api_url or not api_key:
         print("ERROR: Required environment variables not set!")
         print("Please set the following environment variables:")
-        print("export AWS_GET_TEMP_CREDS_API_URL='your-api-url'")
-        print("export AWS_GET_TEMP_CREDS_API_KEY='your-api-key'")
+        print("  export AWS_GET_TEMP_CREDS_API_URL='your-api-url'")
+        print("  export AWS_GET_TEMP_CREDS_API_KEY='your-api-key'")
         sys.exit(1)
     
     # Create ~/.aws directory if it doesn't exist
@@ -30,8 +30,8 @@ def create_temp_creds_script():
     # Get the current Python executable path
     python_path = sys.executable
     
-    # Script content with environment variables
-    script_content = f'''#!/usr/bin/env python3
+    # Script content template
+    script_template = '''#!/usr/bin/env python3
 
 import os
 import json
@@ -39,8 +39,8 @@ import requests
 from datetime import datetime, timezone, timedelta
 
 CACHE_FILE = os.path.expanduser("~/.aws/credentials_cache_python.json")
-API_URL = "{api_url}"
-API_KEY = "{api_key}"
+API_URL = "API_URL_PLACEHOLDER"
+API_KEY = "API_KEY_PLACEHOLDER"
 EXPIRATION_THRESHOLD = timedelta(minutes=5)  # Refresh if expiring within 5 min
 
 def get_cached_credentials():
@@ -62,7 +62,7 @@ def get_cached_credentials():
 def fetch_new_credentials():
     """Fetches new credentials from the API and saves them to cache."""
     try:
-        response = requests.get(API_URL, headers={{"api-key": API_KEY}}, timeout=5)
+        response = requests.get(API_URL, headers={"api-key": API_KEY}, timeout=5)
         response.raise_for_status()
         credentials = response.json()
 
@@ -74,13 +74,16 @@ def fetch_new_credentials():
 
         return credentials
     except requests.RequestException as e:
-        print({{"error": "Failed to fetch credentials:"}})
+        print(json.dumps({"error": "Failed to fetch credentials"}))
         exit(1)
 
 if __name__ == "__main__":
     credentials = get_cached_credentials() or fetch_new_credentials()
     print(json.dumps(credentials))  # AWS CLI reads this output
 '''
+    
+    # Replace placeholders with actual values
+    script_content = script_template.replace("API_URL_PLACEHOLDER", api_url).replace("API_KEY_PLACEHOLDER", api_key)
     
     # Write the script
     with open(script_path, 'w') as f:
