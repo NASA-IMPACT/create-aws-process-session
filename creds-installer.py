@@ -10,14 +10,14 @@ def create_temp_creds_script():
     """Creates the get_temp_creds.py script in ~/.aws/"""
     
     # Check for required environment variables
-    api_url = os.getenv('AWS_TEMP_CREDS_API_URL')
-    api_key = os.getenv('AWS_TEMP_CREDS_API_KEY')
+    api_url = os.getenv('AWS_GET_TEMP_CREDS_API_URL')
+    api_key = os.getenv('AWS_GET_TEMP_CREDS_API_KEY')
     
     if not api_url or not api_key:
         print("ERROR: Required environment variables not set!")
         print("Please set the following environment variables:")
-        print("  export AWS_TEMP_CREDS_API_URL='your-api-url'")
-        print("  export AWS_TEMP_CREDS_API_KEY='your-api-key'")
+        print("export AWS_GET_TEMP_CREDS_API_URL='your-api-url'")
+        print("export AWS_GET_TEMP_CREDS_API_KEY='your-api-key'")
         sys.exit(1)
     
     # Create ~/.aws directory if it doesn't exist
@@ -74,7 +74,7 @@ def fetch_new_credentials():
 
         return credentials
     except requests.RequestException as e:
-        print(json.dumps({{"error": f"Failed to fetch credentials: {{str(e)}}}}))
+        print({"error": f"Failed to fetch credentials: {str(e)}"})
         exit(1)
 
 if __name__ == "__main__":
@@ -93,7 +93,7 @@ if __name__ == "__main__":
     return script_path
 
 def update_aws_credentials_config(script_path):
-    """Updates ~/.aws/credentials to include the temp-session profile"""
+    """Updates ~/.aws/credentials to include the temp-creds-session profile"""
     
     credentials_file = Path.home() / '.aws' / 'credentials'
     
@@ -102,18 +102,18 @@ def update_aws_credentials_config(script_path):
     if credentials_file.exists():
         config.read(credentials_file)
     
-    # Add or update the temp-session profile
-    if 'temp-session' not in config:
-        config.add_section('temp-session')
+    # Add or update the temp-creds-session profile
+    if 'temp-creds-session' not in config:
+        config.add_section('temp-creds-session')
     
-    config.set('temp-session', 'credential_process', str(script_path))
+    config.set('temp-creds-session', 'credential_process', str(script_path))
     
     # Write back to file
     with open(credentials_file, 'w') as f:
         config.write(f)
     
     print(f"✓ Updated AWS credentials file: {credentials_file}")
-    print("✓ Added [temp-session] profile with credential_process")
+    print("✓ Added [temp-creds-session] profile with credential_process")
 
 def main():
     print("AWS Temporary Credentials Setup")
@@ -128,9 +128,9 @@ def main():
         
         print("\n🎉 Setup completed successfully!")
         print("\nYou can now use AWS CLI with:")
-        print("  aws --profile temp-session <command>")
+        print("  aws --profile temp-creds-session <command>")
         print("\nOr set as default profile:")
-        print("  export AWS_PROFILE=temp-session")
+        print("  export AWS_PROFILE=temp-creds-session")
         
     except Exception as e:
         print(f"❌ Setup failed: {str(e)}")
