@@ -74,7 +74,7 @@ def fetch_new_credentials():
 
         return credentials
     except requests.RequestException as e:
-        print({"error": "Failed to fetch credentials:"})
+        print({{"error": "Failed to fetch credentials:"}})
         exit(1)
 
 if __name__ == "__main__":
