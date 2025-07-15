@@ -95,8 +95,9 @@ if __name__ == "__main__":
     print(f"✓ Created executable script: {script_path}")
     return script_path
 
-def update_aws_credentials_config(script_path):
-    """Updates ~/.aws/credentials to include the temp-creds-session profile"""
+def update_aws_credentials_config(script_path, aws_profile_name):
+    """Updates ~/.aws/credentials to include a custom profile"""
+    
     
     credentials_file = Path.home() / '.aws' / 'credentials'
     
@@ -105,20 +106,21 @@ def update_aws_credentials_config(script_path):
     if credentials_file.exists():
         config.read(credentials_file)
     
-    # Add or update the temp-creds-session profile
-    if 'temp-creds-session' not in config:
-        config.add_section('temp-creds-session')
+    # Add or update the custom profile
+    if aws_profile_name not in config:
+        config.add_section(aws_profile_name)
     
-    config.set('temp-creds-session', 'credential_process', str(script_path))
+    config.set(aws_profile_name, 'credential_process', str(script_path))
     
     # Write back to file
     with open(credentials_file, 'w') as f:
         config.write(f)
     
     print(f"✓ Updated AWS credentials file: {credentials_file}")
-    print("✓ Added [temp-creds-session] profile with credential_process")
+    print(f"✓ Added [{aws_profile_name}] profile with credential_process")
 
 def main():
+    aws_profile_name = os.getenv("AWS_PROFILE", "temp-creds-session")
     print("AWS Temporary Credentials Setup")
     print("=" * 35)
     
@@ -127,13 +129,13 @@ def main():
         script_path = create_temp_creds_script()
         
         # Update AWS credentials configuration
-        update_aws_credentials_config(script_path)
+        update_aws_credentials_config(script_path, aws_profile_name)
         
         print("\n🎉 Setup completed successfully!")
         print("\nYou can now use AWS CLI with:")
-        print("  aws --profile temp-creds-session <command>")
+        print(f"aws --profile {aws_profile_name} <command>")
         print("\nOr set as default profile:")
-        print("  export AWS_PROFILE=temp-creds-session")
+        print(f"export AWS_PROFILE={aws_profile_name}")
         
     except Exception as e:
         print(f"❌ Setup failed: {str(e)}")
