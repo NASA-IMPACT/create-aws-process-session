@@ -1,9 +1,7 @@
-
 #!/usr/bin/env python3
 
 import os
 import sys
-import stat
 import configparser
 from pathlib import Path
 
@@ -35,6 +33,7 @@ def create_temp_creds_script():
     script_template = '''#!/usr/bin/env python3
 
 import os
+import sys
 import json
 import requests
 from datetime import datetime, timezone, timedelta
@@ -45,38 +44,54 @@ API_KEY = "API_KEY_PLACEHOLDER"
 EXPIRATION_THRESHOLD = timedelta(minutes=5)  # Refresh if expiring within 5 min
 
 def get_cached_credentials():
-    """Reads cached credentials if they exist and are valid."""
+    """Reads cached credentials if they exist and are valid. Returns None on any cache problem."""
     if not os.path.exists(CACHE_FILE):
         return None
 
-    with open(CACHE_FILE, "r") as f:
-        data = json.load(f)
+    try:
+        with open(CACHE_FILE, "r") as f:
+            data = json.load(f)
+        expiration = datetime.fromisoformat(data["Expiration"])
+        if expiration.tzinfo is None:
+            expiration = expiration.replace(tzinfo=timezone.utc)
+    except (KeyError, ValueError, json.JSONDecodeError, OSError):
+        return None  # corrupt or schema-incompatible cache; treat as missing
 
-    expiration_time = datetime.fromisoformat(data.get("Expiration")).replace(tzinfo=timezone.utc)
-    current_time = datetime.now(timezone.utc)  # Ensure UTC comparison
-
-    if current_time < (expiration_time - EXPIRATION_THRESHOLD):
-        return data  # Return valid cached credentials
-
-    return None  # Expired credentials
+    if datetime.now(timezone.utc) < (expiration - EXPIRATION_THRESHOLD):
+        return data
+    return None
 
 def fetch_new_credentials():
-    """Fetches new credentials from the API and saves them to cache."""
-    try:
-        response = requests.get(API_URL, headers={"x-api-key": API_KEY}, timeout=5)
-        response.raise_for_status()
-        credentials = response.json()
+    """Fetches new credentials from the API. Retries once on 5xx / network blip."""
+    response = None
+    for attempt in range(2):
+        try:
+            response = requests.get(API_URL, headers={"x-api-key": API_KEY}, timeout=5)
+            response.raise_for_status()
+            break
+        except requests.HTTPError as e:
+            transient = e.response is not None and 500 <= e.response.status_code < 600
+            if transient and attempt == 0:
+                continue
+            body = e.response.text[:300] if e.response is not None else ""
+            print(f"HTTP {e.response.status_code} from credentials API: {body}", file=sys.stderr)
+            sys.exit(1)
+        except requests.RequestException as e:
+            if attempt == 0:
+                continue
+            print(f"Network error contacting credentials API: {e}", file=sys.stderr)
+            sys.exit(1)
 
-        # Ensure Expiration is stored as a proper UTC timestamp
-        credentials["Expiration"] = datetime.fromisoformat(credentials["Expiration"]).replace(tzinfo=timezone.utc).isoformat()
+    credentials = response.json()
 
-        with open(CACHE_FILE, "w") as f:
-            json.dump(credentials, f)
+    expiration = datetime.fromisoformat(credentials["Expiration"])
+    if expiration.tzinfo is None:
+        expiration = expiration.replace(tzinfo=timezone.utc)
+    credentials["Expiration"] = expiration.astimezone(timezone.utc).isoformat()
 
-        return credentials
-    except requests.RequestException as e:
-        print(json.dumps({"error": "Failed to fetch credentials"}))
-        exit(1)
+    with open(CACHE_FILE, "w") as f:
+        json.dump(credentials, f)
+    return credentials
 
 if __name__ == "__main__":
     credentials = get_cached_credentials() or fetch_new_credentials()
@@ -90,8 +105,8 @@ if __name__ == "__main__":
     with open(script_path, 'w') as f:
         f.write(script_content)
     
-    # Make the script executable
-    script_path.chmod(script_path.stat().st_mode | stat.S_IEXEC)
+    # Make the script executable, owner-only — the API key is baked into the file.
+    script_path.chmod(0o700)
     
     print(f"✓ Created executable script: {script_path}")
     return script_path
