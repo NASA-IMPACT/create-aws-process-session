@@ -173,6 +173,23 @@ cdk bootstrap aws://<ACCOUNT_ID>/<REGION>
 cdk deploy
 ```
 
+By default the API accepts requests from any source IP. To lock it down to a
+network allow-list (strongly recommended in production), pass one or more
+CIDRs via the `ip_allow_list` context value:
+
+```bash
+# Single range (e.g. a VPN egress)
+cdk deploy -c ip_allow_list=156.68.128.0/22
+
+# Multiple ranges, comma-separated
+cdk deploy -c ip_allow_list=156.68.128.0/22,10.0.0.0/8
+```
+
+The CIDRs are JSON-encoded into the authorizer Lambda's `EXPECTED_IP_RANGE`
+env var and enforced on every request (the authorizer also caches results
+for 5 min, so allow-list changes take up to 5 min to take effect for any
+key that's already been authorized).
+
 You'll get three outputs:
 
 - `ApiUrl` — value for researchers' `AWS_GET_TEMP_CREDS_API_URL`

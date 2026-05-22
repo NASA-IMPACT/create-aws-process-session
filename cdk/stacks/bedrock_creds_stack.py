@@ -7,6 +7,8 @@ a role scoped to bedrock invoke permissions and returns the short-lived creds
 as JSON. The shape matches what AWS CLI / boto3 `credential_process` expects.
 """
 
+import json
+
 from aws_cdk import (
     CfnOutput,
     Duration,
@@ -22,8 +24,17 @@ from constructs import Construct
 
 
 class BedrockCredsStack(Stack):
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(
+        self,
+        scope: Construct,
+        construct_id: str,
+        *,
+        ip_allow_list: list[str] | None = None,
+        **kwargs,
+    ) -> None:
         super().__init__(scope, construct_id, **kwargs)
+
+        ip_allow_list = ip_allow_list or ["0.0.0.0/0"]
 
         # 1) API key stored in Secrets Manager (improvement over plain Lambda env).
         api_key_secret = secretsmanager.Secret(
@@ -136,7 +147,7 @@ class BedrockCredsStack(Stack):
             log_retention=logs.RetentionDays.ONE_MONTH,
             environment={
                 "API_KEY_SECRET_ARN": api_key_secret.secret_arn,
-                "EXPECTED_IP_RANGE": '["0.0.0.0/0"]',
+                "EXPECTED_IP_RANGE": json.dumps(ip_allow_list),
             },
         )
         api_key_secret.grant_read(authorizer_fn)
