@@ -229,8 +229,6 @@ recover the API key if you destroy by mistake.
 
 ## Notes
 
-- `bedrock-installer.py` is currently identical to `creds-installer.py` —
-  candidate for consolidation in a follow-up PR.
 - The helper writes its API key into `~/.aws/get_temp_creds.py` in plaintext;
   the installer now chmod's that file to `0o700` (owner only).
 - For Anthropic Claude 4.x models, AWS Bedrock requires the account owner to
