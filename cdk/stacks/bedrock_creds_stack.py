@@ -63,7 +63,7 @@ class BedrockCredsStack(Stack):
         )
 
         # 3) The role researchers ultimately get credentials for: Bedrock invoke only.
-        #    Scoped to anthropic + meta foundation models in this region, plus any
+        #    Scoped to anthropic + meta + openai foundation models in this region, plus any
         #    cross-region inference profile in this account.
         bedrock_role = iam.Role(
             self,
@@ -87,9 +87,10 @@ class BedrockCredsStack(Stack):
                                 # Cross-region inference profiles route to underlying
                                 # foundation models in any of the US regions, so we
                                 # allow any region for the model ARN itself. Model
-                                # family is still scoped (anthropic, meta).
+                                # family is still scoped (anthropic, meta, openai).
                                 "arn:aws:bedrock:*::foundation-model/anthropic.*",
                                 "arn:aws:bedrock:*::foundation-model/meta.*",
+                                "arn:aws:bedrock:*::foundation-model/openai.*",
                                 f"arn:aws:bedrock:{self.region}:{self.account}:inference-profile/*",
                             ],
                         )
